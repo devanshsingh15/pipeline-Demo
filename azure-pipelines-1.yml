@@ -24,7 +24,7 @@ steps:
     LT_BUILD_NAME: $(LT_BUILD_NAME)
 
 # Step 3: Show LambdaTest Results
-- task: Lambdatest.lambda-azure-pipeline-extention.showResults-task.LambdatestResults@1
+- task: LambdatestResults@1
   displayName: "LambdaTest Results"
   env:
     LT_USERNAME: $(LT_USERNAME)
