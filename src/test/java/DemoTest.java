@@ -39,8 +39,8 @@ public class DemoTest {
 
     @Test
     public void test1() throws InterruptedException {
-        //driver.get("https://github.com/devanshsingh15");
-        driver.get("http://localhost/myapps/");
+        driver.get("https://github.com/devanshsingh15");
+        //driver.get("http://localhost/myapps/");
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         //wait.until(ExpectedConditions.titleContains("devanshsingh15"));
         //WebElement button = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id='login-section']/button")));
@@ -52,6 +52,7 @@ public class DemoTest {
     }
 
 }
+
 
 
 
