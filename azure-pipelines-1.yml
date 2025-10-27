@@ -40,28 +40,75 @@ steps:
     restoreKeys: |
       maven | "$(Agent.OS)"
 
-# Step 4: Install Chrome & ChromeDriver
-- powershell: |
-    Write-Host "Installing Chrome & ChromeDriver..."
-    $chromePath = "${Env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-    if (-Not (Test-Path $chromePath)) { $chromePath = "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
-    if (-Not (Test-Path $chromePath)) {
-        Invoke-WebRequest -Uri "https://dl.google.com/chrome/install/latest/chrome_installer.exe" -OutFile chrome_installer.exe
-        Start-Process -FilePath chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
-        Remove-Item -Force chrome_installer.exe
-    }
 
-    # Corrected line for Chrome version
-    $chromeVersion = ((& $chromePath --version) -split " ")[2]
+# Step 3: Install Google Chrome and ChromeDriver using PowerShell (with fallback for ChromeDriver)
+- powershell: |
+    # Detect Chrome path
+    $chromePath = "${Env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
+    if (-Not (Test-Path $chromePath)) {
+      $chromePath = "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+    }
+    if (-Not (Test-Path $chromePath)) {
+      Write-Error "Google Chrome executable not found!"
+      exit 1
+    }
+    # Install Chrome if missing (unlikely if above paths exist, but kept for safety)
+    if (-Not (Test-Path $chromePath)) {
+      Write-Host "Installing Google Chrome..."
+      Invoke-WebRequest -Uri https://dl.google.com/chrome/install/latest/chrome_installer.exe -OutFile chrome_installer.exe
+      Start-Process -FilePath chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
+      Remove-Item -Force chrome_installer.exe
+    } else {
+      Write-Host "Google Chrome already installed at $chromePath"
+    }
+    # Try to get Chrome version from multiple registry paths
+    $chromeVersion = $null
+    try {
+        $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Google\Chrome\BLBeacon").version
+    } catch {}
+    if (-not $chromeVersion) {
+        try {
+            $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Google\Chrome\BLBeacon").version
+        } catch {}
+    }
+    if (-not $chromeVersion) {
+        try {
+            $chromeVersion = (Get-ItemProperty "HKCU:\Software\Google\Chrome\BLBeacon").version
+        } catch {}
+    }
+    # Fallback: call chrome.exe --version if registry not found
+    if (-not $chromeVersion) {
+        Write-Host "Chrome version not found in registry, falling back to executable."
+        $versionOutput = & $chromePath --version
+        Write-Host "Chrome version output: $versionOutput"
+        # Parse version number from output string, e.g., "Google Chrome 117.0.5938.92"
+        $chromeVersion = ($versionOutput -split " ")[2]
+    }
+    if (-not $chromeVersion) {
+      Write-Error "Unable to determine Chrome version."
+      exit 1
+    }
     Write-Host "Detected Chrome version: $chromeVersion"
     $chromeMajorVersion = $chromeVersion.Split('.')[0]
-
-    $chromedriverVersion = Invoke-RestMethod -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$chromeMajorVersion"
-    Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$chromedriverVersion/chromedriver_win32.zip" -OutFile "chromedriver.zip"
-    Expand-Archive -Path "chromedriver.zip" -DestinationPath "$(Agent.ToolsDirectory)\chromedriver" -Force
-    Remove-Item -Force "chromedriver.zip"
+    Write-Host "Chrome major version: $chromeMajorVersion"
+    # Download matching ChromeDriver version with fallback to latest stable
+    $chromedriverVersionUrl = "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$chromeMajorVersion"
+    try {
+        $chromedriverVersion = Invoke-RestMethod -Uri $chromedriverVersionUrl
+    } catch {
+        Write-Warning "No matching ChromeDriver for version $chromeMajorVersion. Using latest stable ChromeDriver version."
+        $chromedriverVersion = Invoke-RestMethod -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE"
+    }
+    Write-Host "Using ChromeDriver version: $chromedriverVersion"
+    $chromedriverZip = "chromedriver_win32.zip"
+    Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$chromedriverVersion/chromedriver_win32.zip" -OutFile $chromedriverZip
+    # Extract chromedriver.exe
+    Expand-Archive -Path $chromedriverZip -DestinationPath "$(Agent.ToolsDirectory)\chromedriver" -Force
+    Remove-Item -Force $chromedriverZip
+    # Add chromedriver to PATH for this session
     $env:PATH += ";$(Agent.ToolsDirectory)\chromedriver"
-    Write-Host "ChromeDriver installed and added to PATH."
+    # Verify chromedriver version
+    & "$(Agent.ToolsDirectory)\chromedriver\chromedriver.exe" --version
   displayName: 'Install Chrome and ChromeDriver'
 
 
