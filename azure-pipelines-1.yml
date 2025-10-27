@@ -19,14 +19,10 @@ steps:
     mvn clean test
   displayName: "Run Maven Build and Tests"
   env:
-    LT_USERNAME: $(LT_USERNAME)
-    LT_ACCESS_KEY: $(LT_ACCESS_KEY)
     LT_BUILD_NAME: $(LT_BUILD_NAME)
 
 # Step 3: Show LambdaTest Results
 - task: LambdatestResults@1
   displayName: "LambdaTest Results"
   env:
-    LT_USERNAME: $(LT_USERNAME)
-    LT_ACCESS_KEY: $(LT_ACCESS_KEY)
     LT_BUILD_NAME: $(LT_BUILD_NAME)
