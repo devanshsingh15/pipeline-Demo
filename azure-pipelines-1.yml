@@ -2,35 +2,28 @@ trigger:
 - main
 
 pool:
-  name: Default  # Your self-hosted Windows agent pool
+  name: Default   # Your self-hosted Windows agent
 
 variables:
   MAVEN_OPTS: "-Xmx1024m"
-  LT_USERNAME: 'devanshsingh'        # Replace with your LambdaTest username
-  LT_ACCESS_KEY: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'  # Replace with your key
+  LT_USERNAME: "devanshsingh"     # LambdaTest username
+  LT_ACCESS_KEY: "hfvkjdfshvj"    # LambdaTest access key
 
 steps:
 # Step 1: Checkout repository
 - checkout: self
 
-# Step 2: Install JDK 21
+# Step 2: Install JDK 21 (via Chocolatey)
 - powershell: |
     Write-Host "Installing OpenJDK 21..."
     if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-Host "Chocolatey not found. Installing Chocolatey..."
-        Set-ExecutionPolicy Bypass -Scope Process -Force
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+      Set-ExecutionPolicy Bypass -Scope Process -Force
+      [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+      iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
     }
-    if (-not (choco list --local-only | Select-String "openjdk21")) {
-        choco install openjdk21 -y --no-progress
-    } else {
-        Write-Host "OpenJDK 21 is already installed."
-    }
-    $jdkPath = "C:\Program Files\OpenJDK\openjdk-21\bin"
-    if (Test-Path $jdkPath) { $env:PATH += ";$jdkPath" }
+    choco install openjdk21 -y --no-progress
     java -version
-  displayName: 'Install JDK 21'
+  displayName: "Install JDK 21"
 
 # Step 3: Cache Maven dependencies
 - task: Cache@2
@@ -39,83 +32,17 @@ steps:
     path: '$(USERPROFILE)\.m2\repository'
     restoreKeys: |
       maven | "$(Agent.OS)"
+  displayName: "Cache Maven Dependencies"
 
-
-# Step 3: Install Google Chrome and ChromeDriver using PowerShell (with fallback for ChromeDriver)
+# Step 4: Install Chrome (using Chocolatey)
 - powershell: |
-    # Detect Chrome path
-    $chromePath = "${Env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-    if (-Not (Test-Path $chromePath)) {
-      $chromePath = "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
-    }
-    if (-Not (Test-Path $chromePath)) {
-      Write-Error "Google Chrome executable not found!"
-      exit 1
-    }
-    # Install Chrome if missing (unlikely if above paths exist, but kept for safety)
-    if (-Not (Test-Path $chromePath)) {
-      Write-Host "Installing Google Chrome..."
-      Invoke-WebRequest -Uri https://dl.google.com/chrome/install/latest/chrome_installer.exe -OutFile chrome_installer.exe
-      Start-Process -FilePath chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
-      Remove-Item -Force chrome_installer.exe
-    } else {
-      Write-Host "Google Chrome already installed at $chromePath"
-    }
-    # Try to get Chrome version from multiple registry paths
-    $chromeVersion = $null
-    try {
-        $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Google\Chrome\BLBeacon").version
-    } catch {}
-    if (-not $chromeVersion) {
-        try {
-            $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Google\Chrome\BLBeacon").version
-        } catch {}
-    }
-    if (-not $chromeVersion) {
-        try {
-            $chromeVersion = (Get-ItemProperty "HKCU:\Software\Google\Chrome\BLBeacon").version
-        } catch {}
-    }
-    # Fallback: call chrome.exe --version if registry not found
-    if (-not $chromeVersion) {
-        Write-Host "Chrome version not found in registry, falling back to executable."
-        $versionOutput = & $chromePath --version
-        Write-Host "Chrome version output: $versionOutput"
-        # Parse version number from output string, e.g., "Google Chrome 117.0.5938.92"
-        $chromeVersion = ($versionOutput -split " ")[2]
-    }
-    if (-not $chromeVersion) {
-      Write-Error "Unable to determine Chrome version."
-      exit 1
-    }
-    Write-Host "Detected Chrome version: $chromeVersion"
-    $chromeMajorVersion = $chromeVersion.Split('.')[0]
-    Write-Host "Chrome major version: $chromeMajorVersion"
-    # Download matching ChromeDriver version with fallback to latest stable
-    $chromedriverVersionUrl = "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$chromeMajorVersion"
-    try {
-        $chromedriverVersion = Invoke-RestMethod -Uri $chromedriverVersionUrl
-    } catch {
-        Write-Warning "No matching ChromeDriver for version $chromeMajorVersion. Using latest stable ChromeDriver version."
-        $chromedriverVersion = Invoke-RestMethod -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE"
-    }
-    Write-Host "Using ChromeDriver version: $chromedriverVersion"
-    $chromedriverZip = "chromedriver_win32.zip"
-    Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$chromedriverVersion/chromedriver_win32.zip" -OutFile $chromedriverZip
-    # Extract chromedriver.exe
-    Expand-Archive -Path $chromedriverZip -DestinationPath "$(Agent.ToolsDirectory)\chromedriver" -Force
-    Remove-Item -Force $chromedriverZip
-    # Add chromedriver to PATH for this session
-    $env:PATH += ";$(Agent.ToolsDirectory)\chromedriver"
-    # Verify chromedriver version
-    & "$(Agent.ToolsDirectory)\chromedriver\chromedriver.exe" --version
-  displayName: 'Install Chrome and ChromeDriver'
+    Write-Host "Installing latest Google Chrome..."
+    choco install googlechrome -y --no-progress
+    & "C:\Program Files\Google\Chrome\Application\chrome.exe" --version
+  displayName: "Install Google Chrome"
 
-
-# Step 5: Build and run tests
-- script: mvn clean test
-  displayName: 'Build & Run Selenium Tests'
-
-# Step 6: Publish LambdaTest results
-- task: LambdatestResults@1
-
+# Step 5: Build and Run Tests on LambdaTest
+- script: |
+    echo "Running tests on LambdaTest..."
+    mvn clean test -Dlt.username=$(LT_USERNAME) -Dlt.key=$(LT_ACCESS_KEY)
+  displayName: "Build & Run Selenium Tests"
