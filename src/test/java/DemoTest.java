@@ -17,12 +17,13 @@ public class DemoTest {
 
     @BeforeMethod
     public void setup(Method method) throws MalformedURLException {
+        String buildname = System.getenv("LT_BUILD_NAME");
         MutableCapabilities capabilities = new MutableCapabilities();
         capabilities.setCapability("browserName", "chrome");
         capabilities.setCapability("browserVersion", "dev");
         capabilities.setCapability("platformName", "Windows 10");
         HashMap<String, Object> ltOptions = new HashMap<String, Object>();
-        ltOptions.put("build", "Selenium-Sample-Assignment");
+        ltOptions.put("build", buildname);
         ltOptions.put("name",method.getName() + " - " + "chrome" + " - " + "Windows 10");
         ltOptions.put("network", true);
         ltOptions.put("visual", true);
@@ -52,6 +53,7 @@ public class DemoTest {
     }
 
 }
+
 
 
 
