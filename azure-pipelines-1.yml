@@ -2,13 +2,17 @@ trigger:
 - main
 
 pool:
-   Default
+  name: Default   # Your agent pool name
+
 stages:
 - stage: BuildAndTest
   jobs:
   - job: BuildAndTestJob
     steps:
-      - script: "mvn clean test"
-        displayName: "Command Line Script"
-      - task: 
-          LambdatestResults@1
+    - script: mvn clean test
+      displayName: "Run Maven Tests"
+
+    - task: LambdatestResults@1
+      inputs:
+        testResultsDir: '$(System.DefaultWorkingDirectory)/target/surefire-reports'
+        testResultsFile: '**/TEST-*.xml'
