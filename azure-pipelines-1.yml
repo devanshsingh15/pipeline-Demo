@@ -12,7 +12,7 @@ steps:
   - task: Lambdatest.lambda-azure-pipeline-extention.configuration-task.configuration@1
     displayName: "LambdaTest configuration setup"
     inputs: 
-      connection: 'Service Account Project sesstings'
+      connection: 'Lambdatest-Connection'
     env:
       LT_BUILD_NAME: Test_Sample_Java
 
