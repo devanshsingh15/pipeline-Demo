@@ -6,23 +6,27 @@ pool:
 
 variables:
   LT_USERNAME: 'devanshsingh'     # Replace with your LambdaTest username
-  LT_ACCESS_KEY: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'
+  LT_ACCESS_KEY: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'     # Replace with your LambdaTest access key
+  LT_BUILD_NAME: 'Test_Sample_Java'
 
 steps:
-  - task: Lambdatest.lambda-azure-pipeline-extention.configuration-task.configuration@1
-    displayName: "LambdaTest configuration setup"
-    inputs: 
-      connection: 'Lambdatest-Connection'
-    env:
-      LT_BUILD_NAME: Test_Sample_Java
+# Step 1: Checkout the repository
+- checkout: self
 
-  - script: |
-      mvn clean install
-      mvn clean test
+# Step 2: Run Maven commands
+- script: |
+    mvn clean install
+    mvn clean test
+  displayName: "Run Maven Build and Tests"
+  env:
+    LT_USERNAME: $(LT_USERNAME)
+    LT_ACCESS_KEY: $(LT_ACCESS_KEY)
+    LT_BUILD_NAME: $(LT_BUILD_NAME)
 
-    displayName: "Command Line Script"
-
-  - task: Lambdatest.lambda-azure-pipeline-extention.showResults-task.LambdatestResults@1
-    displayName: "Lambdatest Results"
-    env:
-      LT_BUILD_NAME: Test_Sample_Java
+# Step 3: Show LambdaTest Results
+- task: Lambdatest.lambda-azure-pipeline-extention.showResults-task.LambdatestResults@1
+  displayName: "LambdaTest Results"
+  env:
+    LT_USERNAME: $(LT_USERNAME)
+    LT_ACCESS_KEY: $(LT_ACCESS_KEY)
+    LT_BUILD_NAME: $(LT_BUILD_NAME)
