@@ -7,14 +7,20 @@ pool:
 variables:
   LT_USERNAME: 'devanshsingh'     # Replace with your LambdaTest username
   LT_ACCESS_KEY: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'
-  LT_BUILD_NAME: 'Build-Sample'
 
-stages:
-- stage: BuildAndTest
-  jobs:
-  - job: BuildAndTestJob
-    steps:
-    - script: mvn clean test
-      displayName: "Run Maven Tests"
+steps:
+  - task: Lambdatest.lambda-azure-pipeline-extention.configuration-task.configuration@1
+    displayName: "LambdaTest configuration setup"
+    env:
+      LT_BUILD_NAME: Test_Sample_Java
 
-    - task: LambdatestResults@1
+  - script: |
+      mvn clean install
+      mvn clean test
+
+    displayName: "Command Line Script"
+
+  - task: Lambdatest.lambda-azure-pipeline-extention.showResults-task.LambdatestResults@1
+    displayName: "Lambdatest Results"
+    env:
+      LT_BUILD_NAME: Test_Sample_Java
