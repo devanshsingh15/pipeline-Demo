@@ -118,10 +118,4 @@ steps:
 
 # Step 6: Publish LambdaTest results
 - task: LambdatestResults@1
-  inputs:
-    connection: 'LambdaTestConnection'
-    isTunnelActivate: false
-    isAppAutomate: false
-    isSmartUI: false
-  displayName: 'Publish LambdaTest Results'
 
