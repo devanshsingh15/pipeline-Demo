@@ -1,17 +1,19 @@
 trigger:
-- main  # Triggers the pipeline on commits to 'main' branch
+- main
 
 pool:
-  name: Default   # Your self-hosted Windows agent pool name
+  name: Default  # Your self-hosted Windows agent pool
 
 variables:
   MAVEN_OPTS: "-Xmx1024m"
+  LT_USERNAME: 'devanshsingh'        # Replace with your LambdaTest username
+  LT_ACCESS_KEY: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'  # Replace with your key
 
 steps:
 # Step 1: Checkout repository
 - checkout: self
 
-# Step 2: Install JDK 21 using Chocolatey (auto-installs Chocolatey if missing)
+# Step 2: Install JDK 21
 - powershell: |
     Write-Host "Installing OpenJDK 21..."
     if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
@@ -20,21 +22,13 @@ steps:
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
         iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
     }
-
-    # Install OpenJDK 21 if not already installed
     if (-not (choco list --local-only | Select-String "openjdk21")) {
         choco install openjdk21 -y --no-progress
     } else {
         Write-Host "OpenJDK 21 is already installed."
     }
-
-    # Add JDK to PATH for the current session
     $jdkPath = "C:\Program Files\OpenJDK\openjdk-21\bin"
-    if (Test-Path $jdkPath) {
-        $env:PATH += ";$jdkPath"
-    }
-
-    Write-Host "Java version:"
+    if (Test-Path $jdkPath) { $env:PATH += ";$jdkPath" }
     java -version
   displayName: 'Install JDK 21'
 
@@ -46,79 +40,36 @@ steps:
     restoreKeys: |
       maven | "$(Agent.OS)"
 
-# Step 4: Install Google Chrome and ChromeDriver
+# Step 4: Install Chrome & ChromeDriver
 - powershell: |
-    Write-Host "Checking for Google Chrome..."
+    Write-Host "Installing Chrome & ChromeDriver..."
     $chromePath = "${Env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
+    if (-Not (Test-Path $chromePath)) { $chromePath = "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
     if (-Not (Test-Path $chromePath)) {
-      $chromePath = "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+        Invoke-WebRequest -Uri "https://dl.google.com/chrome/install/latest/chrome_installer.exe" -OutFile chrome_installer.exe
+        Start-Process -FilePath chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
+        Remove-Item -Force chrome_installer.exe
     }
-
-    if (-Not (Test-Path $chromePath)) {
-      Write-Host "Installing Google Chrome..."
-      Invoke-WebRequest -Uri "https://dl.google.com/chrome/install/latest/chrome_installer.exe" -OutFile chrome_installer.exe
-      Start-Process -FilePath chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
-      Remove-Item -Force chrome_installer.exe
-    } else {
-      Write-Host "Google Chrome already installed at $chromePath"
-    }
-
-    # Detect Chrome version
-    $chromeVersion = $null
-    try {
-        $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Google\Chrome\BLBeacon").version
-    } catch {}
-    if (-not $chromeVersion) {
-        try { $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Google\Chrome\BLBeacon").version } catch {}
-    }
-    if (-not $chromeVersion) {
-        try { $chromeVersion = (Get-ItemProperty "HKCU:\Software\Google\Chrome\BLBeacon").version } catch {}
-    }
-    if (-not $chromeVersion) {
-        Write-Host "Chrome version not found in registry, using executable version."
-        $versionOutput = & $chromePath --version
-        $chromeVersion = ($versionOutput -split " ")[2]
-    }
-    if (-not $chromeVersion) {
-      Write-Error "Unable to determine Chrome version."
-      exit 1
-    }
-
-    Write-Host "Detected Chrome version: $chromeVersion"
+    $chromeVersion = (& $chromePath --version) -split " ")[2]
     $chromeMajorVersion = $chromeVersion.Split('.')[0]
-
-    # Download matching ChromeDriver version
-    $chromedriverVersionUrl = "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$chromeMajorVersion"
-    try {
-        $chromedriverVersion = Invoke-RestMethod -Uri $chromedriverVersionUrl
-    } catch {
-        Write-Warning "No exact ChromeDriver version found, using latest stable."
-        $chromedriverVersion = Invoke-RestMethod -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE"
-    }
-
-    Write-Host "Using ChromeDriver version: $chromedriverVersion"
-    $chromedriverZip = "chromedriver_win32.zip"
-    Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$chromedriverVersion/chromedriver_win32.zip" -OutFile $chromedriverZip
-
-    # Extract chromedriver.exe
-    Expand-Archive -Path $chromedriverZip -DestinationPath "$(Agent.ToolsDirectory)\chromedriver" -Force
-    Remove-Item -Force $chromedriverZip
-
-    # Add chromedriver to PATH
+    $chromedriverVersion = Invoke-RestMethod -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$chromeMajorVersion"
+    Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$chromedriverVersion/chromedriver_win32.zip" -OutFile "chromedriver.zip"
+    Expand-Archive -Path "chromedriver.zip" -DestinationPath "$(Agent.ToolsDirectory)\chromedriver" -Force
+    Remove-Item -Force "chromedriver.zip"
     $env:PATH += ";$(Agent.ToolsDirectory)\chromedriver"
-    Write-Host "Verifying ChromeDriver:"
-    & "$(Agent.ToolsDirectory)\chromedriver\chromedriver.exe" --version
   displayName: 'Install Chrome and ChromeDriver'
 
-# Step 5: Build Maven project
-- script: mvn clean compile
-  displayName: 'Maven Clean & Compile'
+# Step 5: Build and run tests
+- script: mvn clean test
+  displayName: 'Build & Run Selenium Tests'
 
-# Step 6: Run Selenium tests
-- script: mvn test
-  displayName: 'Run Selenium Tests'
-
-# Step 7: Package project (optional)
-- script: mvn package
-  displayName: 'Maven Package'
+# Step 6: Publish LambdaTest results
 - task: LambdatestResults@1
+  inputs:
+    ltUsername: '$(LT_USERNAME)'
+    ltAccessKey: '$(LT_ACCESS_KEY)'
+    isTunnelActivate: false           # No tunnel
+    isAppAutomate: false
+    isSmartUI: false
+    connection: ''                     # Leave empty if no pre-defined connection
+  displayName: 'Publish LambdaTest Results'
