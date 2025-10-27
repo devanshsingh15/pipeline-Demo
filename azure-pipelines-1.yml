@@ -1,5 +1,5 @@
 trigger:
-  - main
+- main  # Triggers the pipeline on commits to 'main' branch
 
 pool:
   name: Default   # Your self-hosted Windows agent pool name
@@ -8,9 +8,10 @@ variables:
   MAVEN_OPTS: "-Xmx1024m"
 
 steps:
+# Step 1: Checkout repository
 - checkout: self
 
-# Step 1: Install JDK 21 using Chocolatey (with automatic Chocolatey setup if missing)
+# Step 2: Install JDK 21 using Chocolatey (auto-installs Chocolatey if missing)
 - powershell: |
     Write-Host "Installing OpenJDK 21..."
     if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
@@ -37,7 +38,7 @@ steps:
     java -version
   displayName: 'Install JDK 21'
 
-# Step 2: Cache Maven dependencies
+# Step 3: Cache Maven dependencies
 - task: Cache@2
   inputs:
     key: 'maven | "$(Agent.OS)" | **/pom.xml'
@@ -45,15 +46,14 @@ steps:
     restoreKeys: |
       maven | "$(Agent.OS)"
 
-# Step 3: Install Google Chrome and ChromeDriver using PowerShell (with fallback for ChromeDriver)
+# Step 4: Install Google Chrome and ChromeDriver
 - powershell: |
-    # Detect Chrome path
+    Write-Host "Checking for Google Chrome..."
     $chromePath = "${Env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
     if (-Not (Test-Path $chromePath)) {
       $chromePath = "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
     }
 
-    # Install Chrome if missing
     if (-Not (Test-Path $chromePath)) {
       Write-Host "Installing Google Chrome..."
       Invoke-WebRequest -Uri "https://dl.google.com/chrome/install/latest/chrome_installer.exe" -OutFile chrome_installer.exe
@@ -110,25 +110,25 @@ steps:
     & "$(Agent.ToolsDirectory)\chromedriver\chromedriver.exe" --version
   displayName: 'Install Chrome and ChromeDriver'
 
-# Step 4: Configure LambdaTest Tunnel
-- task: configuration@1
+# Step 5: Configure LambdaTest Tunnel (assuming a custom Azure DevOps extension)
+- task: LambdaTestResults@1
   inputs:
     isTunnelActivate: true
     isAppAutomate: false
     isSmartUI: false
-    ltUsername: 'devanshsingh'    # Replace with your LambdaTest username
-    ltAccessKey: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c' # Replace with your LambdaTest access key
+    ltUsername: 'devanshsingh'     # Replace with your LambdaTest username
+    ltAccessKey: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'  # Replace with your LambdaTest access key
     connection: 'Lambdatest-Connection'
   displayName: 'Configure LambdaTest Tunnel'
 
-# Step 5: Build Maven project
+# Step 6: Build Maven project
 - script: mvn clean compile
   displayName: 'Maven Clean & Compile'
 
-# Step 6: Run Selenium tests (headless mode recommended)
+# Step 7: Run Selenium tests
 - script: mvn test
   displayName: 'Run Selenium Tests'
 
-# Step 7: Package project (optional)
+# Step 8: Package project (optional)
 - script: mvn package
   displayName: 'Maven Package'
