@@ -110,25 +110,15 @@ steps:
     & "$(Agent.ToolsDirectory)\chromedriver\chromedriver.exe" --version
   displayName: 'Install Chrome and ChromeDriver'
 
-# Step 5: Configure LambdaTest Tunnel (assuming a custom Azure DevOps extension)
-- task: LambdaTestResults@1
-  inputs:
-    isTunnelActivate: true
-    isAppAutomate: false
-    isSmartUI: false
-    ltUsername: 'devanshsingh'     # Replace with your LambdaTest username
-    ltAccessKey: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'  # Replace with your LambdaTest access key
-    connection: 'Lambdatest-Connection'
-  displayName: 'Configure LambdaTest Tunnel'
-
-# Step 6: Build Maven project
+# Step 5: Build Maven project
 - script: mvn clean compile
   displayName: 'Maven Clean & Compile'
 
-# Step 7: Run Selenium tests
+# Step 6: Run Selenium tests
 - script: mvn test
   displayName: 'Run Selenium Tests'
 
-# Step 8: Package project (optional)
+# Step 7: Package project (optional)
 - script: mvn package
   displayName: 'Maven Package'
+- task: LambdatestResults@1
