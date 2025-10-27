@@ -1,17 +1,40 @@
 trigger:
   - main
+
 pool:
   name: Default   # Your self-hosted Windows agent pool name
+
 variables:
   MAVEN_OPTS: "-Xmx1024m"
+
 steps:
 - checkout: self
 
-# Step 1: Install JDK 21 using Chocolatey (or skip if already installed)
+# Step 1: Install JDK 21 using Chocolatey (with automatic Chocolatey setup if missing)
 - powershell: |
-    choco install openjdk21 -y
+    Write-Host "Installing OpenJDK 21..."
+    if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+        Write-Host "Chocolatey not found. Installing Chocolatey..."
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    }
+
+    # Install OpenJDK 21 if not already installed
+    if (-not (choco list --local-only | Select-String "openjdk21")) {
+        choco install openjdk21 -y --no-progress
+    } else {
+        Write-Host "OpenJDK 21 is already installed."
+    }
+
+    # Add JDK to PATH for the current session
+    $jdkPath = "C:\Program Files\OpenJDK\openjdk-21\bin"
+    if (Test-Path $jdkPath) {
+        $env:PATH += ";$jdkPath"
+    }
+
+    Write-Host "Java version:"
     java -version
-- task: LambdatestResults@1
   displayName: 'Install JDK 21'
 
 # Step 2: Cache Maven dependencies
@@ -29,70 +52,65 @@ steps:
     if (-Not (Test-Path $chromePath)) {
       $chromePath = "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
     }
-    if (-Not (Test-Path $chromePath)) {
-      Write-Error "Google Chrome executable not found!"
-      exit 1
-    }
-    # Install Chrome if missing (unlikely if above paths exist, but kept for safety)
+
+    # Install Chrome if missing
     if (-Not (Test-Path $chromePath)) {
       Write-Host "Installing Google Chrome..."
-      Invoke-WebRequest -Uri https://dl.google.com/chrome/install/latest/chrome_installer.exe -OutFile chrome_installer.exe
+      Invoke-WebRequest -Uri "https://dl.google.com/chrome/install/latest/chrome_installer.exe" -OutFile chrome_installer.exe
       Start-Process -FilePath chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
       Remove-Item -Force chrome_installer.exe
     } else {
       Write-Host "Google Chrome already installed at $chromePath"
     }
-    # Try to get Chrome version from multiple registry paths
+
+    # Detect Chrome version
     $chromeVersion = $null
     try {
         $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Google\Chrome\BLBeacon").version
     } catch {}
     if (-not $chromeVersion) {
-        try {
-            $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Google\Chrome\BLBeacon").version
-        } catch {}
+        try { $chromeVersion = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Google\Chrome\BLBeacon").version } catch {}
     }
     if (-not $chromeVersion) {
-        try {
-            $chromeVersion = (Get-ItemProperty "HKCU:\Software\Google\Chrome\BLBeacon").version
-        } catch {}
+        try { $chromeVersion = (Get-ItemProperty "HKCU:\Software\Google\Chrome\BLBeacon").version } catch {}
     }
-    # Fallback: call chrome.exe --version if registry not found
     if (-not $chromeVersion) {
-        Write-Host "Chrome version not found in registry, falling back to executable."
+        Write-Host "Chrome version not found in registry, using executable version."
         $versionOutput = & $chromePath --version
-        Write-Host "Chrome version output: $versionOutput"
-        # Parse version number from output string, e.g., "Google Chrome 117.0.5938.92"
         $chromeVersion = ($versionOutput -split " ")[2]
     }
     if (-not $chromeVersion) {
       Write-Error "Unable to determine Chrome version."
       exit 1
     }
+
     Write-Host "Detected Chrome version: $chromeVersion"
     $chromeMajorVersion = $chromeVersion.Split('.')[0]
-    Write-Host "Chrome major version: $chromeMajorVersion"
-    # Download matching ChromeDriver version with fallback to latest stable
+
+    # Download matching ChromeDriver version
     $chromedriverVersionUrl = "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$chromeMajorVersion"
     try {
         $chromedriverVersion = Invoke-RestMethod -Uri $chromedriverVersionUrl
     } catch {
-        Write-Warning "No matching ChromeDriver for version $chromeMajorVersion. Using latest stable ChromeDriver version."
+        Write-Warning "No exact ChromeDriver version found, using latest stable."
         $chromedriverVersion = Invoke-RestMethod -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE"
     }
+
     Write-Host "Using ChromeDriver version: $chromedriverVersion"
     $chromedriverZip = "chromedriver_win32.zip"
     Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$chromedriverVersion/chromedriver_win32.zip" -OutFile $chromedriverZip
+
     # Extract chromedriver.exe
     Expand-Archive -Path $chromedriverZip -DestinationPath "$(Agent.ToolsDirectory)\chromedriver" -Force
     Remove-Item -Force $chromedriverZip
-    # Add chromedriver to PATH for this session
+
+    # Add chromedriver to PATH
     $env:PATH += ";$(Agent.ToolsDirectory)\chromedriver"
-    # Verify chromedriver version
+    Write-Host "Verifying ChromeDriver:"
     & "$(Agent.ToolsDirectory)\chromedriver\chromedriver.exe" --version
   displayName: 'Install Chrome and ChromeDriver'
 
-# Step 4: Configure LambdaTest Tunnel (with hardcoded credentials)
+# Step 4: Configure LambdaTest Tunnel
 - task: configuration@1
   inputs:
     isTunnelActivate: true
