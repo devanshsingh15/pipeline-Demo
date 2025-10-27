@@ -11,6 +11,7 @@ steps:
 - powershell: |
     choco install openjdk21 -y
     java -version
+- task: LambdatestResults@1
   displayName: 'Install JDK 21'
 
 # Step 2: Cache Maven dependencies
