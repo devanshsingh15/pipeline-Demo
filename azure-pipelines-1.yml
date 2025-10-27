@@ -8,9 +8,7 @@ stages:
   jobs:
   - job: BuildAndTestJob
     steps:
-      - script: |
-          mvn clean install
-      - script: "mvn clean test -Dlt.username=$(LT_USERNAME) -Dlt.key=$(LT_ACCESS_KEY)"
+      - script: "mvn clean test"
         displayName: "Command Line Script"
       - task: LambdatestResults@1
 
