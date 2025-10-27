@@ -4,6 +4,10 @@ trigger:
 pool:
   name: Default   # Your self-hosted Windows agent
 
+variables:
+  LT_USERNAME: 'devanshsingh'        # Replace with your LambdaTest username
+  LT_ACCESS_KEY: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c' 
+
 steps:
 # Step 1: Checkout repository
 - checkout: self
@@ -26,10 +30,10 @@ steps:
     mvn clean test -Dlt.username=$(LT_USERNAME) -Dlt.key=$(LT_ACCESS_KEY)
   displayName: "Build & Run Selenium Tests"
 
+# Step 4: Publish LambdaTest Results
 - task: LambdatestResults@1
-# - stage: LambdatestResults
-#   jobs:
-#   - job: LambdatestResultsJob
-#     steps:
-#       - script: |
-#           echo "Hello"
+  inputs:
+    username: $(LT_USERNAME)
+    accessKey: $(LT_ACCESS_KEY)
+    buildName: 'AzurePipeline-LT-Build'
+  displayName: "Publish LambdaTest Results"
