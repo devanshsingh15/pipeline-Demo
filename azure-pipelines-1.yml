@@ -119,10 +119,9 @@ steps:
 # Step 6: Publish LambdaTest results
 - task: LambdatestResults@1
   inputs:
-    ltUsername: '$(LT_USERNAME)'
-    ltAccessKey: '$(LT_ACCESS_KEY)'
-    isTunnelActivate: false           # No tunnel
+    connection: 'LambdaTestConnection'
+    isTunnelActivate: false
     isAppAutomate: false
     isSmartUI: false
-    connection: ''                     # Leave empty if no pre-defined connection
   displayName: 'Publish LambdaTest Results'
+
