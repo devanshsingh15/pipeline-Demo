@@ -50,14 +50,20 @@ steps:
         Start-Process -FilePath chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
         Remove-Item -Force chrome_installer.exe
     }
-    $chromeVersion = (& $chromePath --version) -split " ")[2]
+
+    # Corrected line for Chrome version
+    $chromeVersion = ((& $chromePath --version) -split " ")[2]
+    Write-Host "Detected Chrome version: $chromeVersion"
     $chromeMajorVersion = $chromeVersion.Split('.')[0]
+
     $chromedriverVersion = Invoke-RestMethod -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$chromeMajorVersion"
     Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$chromedriverVersion/chromedriver_win32.zip" -OutFile "chromedriver.zip"
     Expand-Archive -Path "chromedriver.zip" -DestinationPath "$(Agent.ToolsDirectory)\chromedriver" -Force
     Remove-Item -Force "chromedriver.zip"
     $env:PATH += ";$(Agent.ToolsDirectory)\chromedriver"
+    Write-Host "ChromeDriver installed and added to PATH."
   displayName: 'Install Chrome and ChromeDriver'
+
 
 # Step 5: Build and run tests
 - script: mvn clean test
