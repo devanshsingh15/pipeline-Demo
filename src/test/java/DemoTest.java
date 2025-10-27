@@ -43,7 +43,7 @@ public class DemoTest {
         driver.get("http://localhost/myapps/");
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         //wait.until(ExpectedConditions.titleContains("devanshsingh15"));
-        WebElement button = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id='login-section']/button")));
+        //WebElement button = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id='login-section']/button")));
     }
 
     @AfterMethod
@@ -52,6 +52,7 @@ public class DemoTest {
     }
 
 }
+
 
 
 
