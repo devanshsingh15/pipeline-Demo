@@ -4,6 +4,12 @@ trigger:
 pool:
   name: Default   # Your agent pool name
 
+  variables:
+  MAVEN_OPTS: "-Xmx1024m"
+  LT_USERNAME: 'devanshsingh'     # Replace with your LambdaTest username
+  LT_ACCESS_KEY: 'LT_kjmzzJCYu70kReE7lwE0w2MOXLWg2q72EMh68BOot6fYI1c'
+  LT_BUILD_NAME: 'Build-Sample'
+
 stages:
 - stage: BuildAndTest
   jobs:
