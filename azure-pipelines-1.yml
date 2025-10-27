@@ -4,11 +4,6 @@ trigger:
 pool:
   name: Default   # Your self-hosted Windows agent
 
-variables:
-  MAVEN_OPTS: "-Xmx1024m"
-  LT_USERNAME: "devanshsingh"     # LambdaTest username
-  LT_ACCESS_KEY: "hfvkjdfshvj"    # LambdaTest access key
-
 steps:
 # Step 1: Checkout repository
 - checkout: self
@@ -25,24 +20,16 @@ steps:
     java -version
   displayName: "Install JDK 21"
 
-# Step 3: Cache Maven dependencies
-- task: Cache@2
-  inputs:
-    key: 'maven | "$(Agent.OS)" | **/pom.xml'
-    path: '$(USERPROFILE)\.m2\repository'
-    restoreKeys: |
-      maven | "$(Agent.OS)"
-  displayName: "Cache Maven Dependencies"
-
-# Step 4: Install Chrome (using Chocolatey)
-- powershell: |
-    Write-Host "Installing latest Google Chrome..."
-    choco install googlechrome -y --no-progress
-    & "C:\Program Files\Google\Chrome\Application\chrome.exe" --version
-  displayName: "Install Google Chrome"
-
 # Step 5: Build and Run Tests on LambdaTest
 - script: |
     echo "Running tests on LambdaTest..."
     mvn clean test -Dlt.username=$(LT_USERNAME) -Dlt.key=$(LT_ACCESS_KEY)
   displayName: "Build & Run Selenium Tests"
+
+- task: LambdatestResults@1
+# - stage: LambdatestResults
+#   jobs:
+#   - job: LambdatestResultsJob
+#     steps:
+#       - script: |
+#           echo "Hello"
