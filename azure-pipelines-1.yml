@@ -3,31 +3,16 @@ trigger:
 
 pool:
   name: Default   # Your self-hosted Windows agent
+stages:
+- stage: BuildAndTest
+  jobs:
+  - job: BuildAndTestJob
+    steps:
+      - script: |
+          mvn clean install
+      - script: "mvn clean test -Dlt.username=$(LT_USERNAME) -Dlt.key=$(LT_ACCESS_KEY)"
+        displayName: "Command Line Script"
+      - task: LambdatestResults@1
 
-steps:
-# Step 1: Checkout repository
-- checkout: self
 
-# Step 2: Install JDK 21 (via Chocolatey)
-- powershell: |
-    Write-Host "Installing OpenJDK 21..."
-    if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-      Set-ExecutionPolicy Bypass -Scope Process -Force
-      [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-      iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    }
-    choco install openjdk21 -y --no-progress
-    java -version
-  displayName: "Install JDK 21"
 
-# Step 5: Build and Run Tests on LambdaTest
-- script: |
-    echo "Running tests on LambdaTest..."
-    mvn clean test -Dlt.username=$(LT_USERNAME) -Dlt.key=$(LT_ACCESS_KEY)
-  displayName: "Build & Run Selenium Tests"
-
-# Step 4: Publish LambdaTest Results
-- task: LambdatestResults@1
-  inputs:
-    buildName: 'AzurePipeline-LT-Build'
-  displayName: "Publish LambdaTest Results"
