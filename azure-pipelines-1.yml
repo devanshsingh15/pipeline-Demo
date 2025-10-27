@@ -2,7 +2,7 @@ trigger:
 - main
 
 pool:
-  name: Default   # Your self-hosted Windows agent
+   Default
 stages:
 - stage: BuildAndTest
   jobs:
@@ -10,7 +10,5 @@ stages:
     steps:
       - script: "mvn clean test"
         displayName: "Command Line Script"
-      - task: LambdatestResults@1
-
-
-
+      - task: 
+          LambdatestResults@1
